@@ -1,5 +1,6 @@
 import json
 from enum import Enum, auto
+from typing import List
 from unittest import case
 
 import pygame
@@ -65,31 +66,28 @@ def colorize_surfaces(images, new_color):
     return images_edited
 
 class SpaceInvadersSprite(pygame.sprite.Sprite):
-    def __init__(self, entity, x, y):
-        pygame.sprite.Sprite.__init__(self)
-        self.entity = entity
-        self.images = entity['images']
-        self.images = colorize_surfaces(entity['images'], entity['color'])
+    def __init__(
+            self, 
+            images: List[pygame.Surface], 
+            color: tuple, 
+            speed: int, 
+            x_pos, 
+            y_pos, 
+            groups):
+        super().__init__(groups)
+        # placeholder: using only one image right now
+        self.images = images
+        self.images = colorize_surfaces(self.images, color)
         self.image_frame = 0
-        self.ms_since_move = 0
         self.image = self.images[self.image_frame]
         self.mask = pygame.mask.from_surface(self.image)
         self.rect = self.image.get_rect()
-        self.rect.center = (x, y)
-        self.pos = Vector2(x, y)
+        self.rect.center = (x_pos, y_pos)
+        self.pos = Vector2(x_pos, y_pos)
         self.vel = Vector2(0, 0)
-        self.speed = entity['speed']
-        self.should_move = False
+        self.speed = speed
         self.direction = None
-        self.enemy_move_threshold = 1000
-        self.enemy_row = None
-        
-        match self.entity['name']:
-            case 'BULLET_PLAYER':
-                self.should_move = True
-                self.direction = Direction.UP
-            case 'ENEMY_CONEHEAD' | 'ENEMY_ANTENNA' | 'ENEMY_EARS':
-                self.direction = Direction.RIGHT
+        self.should_move = False
 
     def is_at_edge(self, screen: pygame.Surface, direction: Direction):
         match direction:
@@ -103,28 +101,12 @@ class SpaceInvadersSprite(pygame.sprite.Sprite):
                 return self.rect.bottom >= screen.get_height()
         return False
     
-    def enemy_move_down(self):
-        self.pos.y += 1
-    
     def animate(self):
         self.image_frame = (self.image_frame + 1) % len(self.images)
         self.image = self.images[self.image_frame]
             
-    def update(self, dt, ms_elapsed_since_start):            
-        match self.entity['name']:
-            case 'BULLET_PLAYER':
-                if self.rect.bottom < 0:
-                    self.kill()
-            case 'ENEMY_CONEHEAD' | 'ENEMY_ANTENNA' | 'ENEMY_EARS':
-                if self.ms_since_move >= self.enemy_move_threshold:
-                    self.should_move = True
-                    self.animate()
-                    self.ms_since_move = 0
-                else:
-                    self.should_move = False
-                    self.ms_since_move += dt * 1000
-                
-        # update velocity depending on direction of movement
+    def update(self, dt, ms_elapsed_since_start):
+        # update velocity to equal speed depending on direction of movement
         if self.direction == Direction.LEFT:
             self.vel.x = -self.speed
         elif self.direction == Direction.RIGHT:
@@ -140,4 +122,50 @@ class SpaceInvadersSprite(pygame.sprite.Sprite):
         if self.should_move:
             self.pos += self.vel * dt
             self.rect.center = round(self.pos.x), round(self.pos.y)
-            # self.rect.center = self.pos.x, self.pos.y
+            
+            
+class PlayerSprite(SpaceInvadersSprite):
+    def __init__(self, images: List[pygame.Surface], color: tuple, speed: int, x_pos, y_pos, groups):
+        super().__init__(images, color, speed, x_pos, y_pos, groups)
+
+    def update(self, dt, ms_elapsed_since_start):
+        super().update(dt, ms_elapsed_since_start)
+        
+        
+class BarrierSprite(SpaceInvadersSprite):
+    def __init__(self, images: List[pygame.Surface], color: tuple, speed: int, x_pos, y_pos, groups):
+        super().__init__(images, color, speed, x_pos, y_pos, groups)
+        
+        
+class PlayerBulletSprite(SpaceInvadersSprite):
+    def __init__(self, images: List[pygame.Surface], color: tuple, speed: int, x_pos, y_pos, groups):
+        super().__init__(images, color, speed, x_pos, y_pos, groups)
+        self.should_move = True
+        self.direction = Direction.UP
+        
+    def update(self, dt, ms_elapsed_since_start):
+        super().update(dt, ms_elapsed_since_start)
+        if self.rect.bottom < 0:
+            self.kill()
+            
+        
+class EnemySprite(SpaceInvadersSprite):
+    def __init__(self, images: List[pygame.Surface], color: tuple, speed: int, x_pos, y_pos, groups):
+        super().__init__(images, color, speed, x_pos, y_pos, groups)
+        self.direction = Direction.RIGHT
+        self.ms_since_move = 0
+        self.move_time_threshold = 1000
+
+    def shift_down(self):
+        self.pos.y += 1
+        
+    def update(self, dt, ms_elapsed_since_start):
+        super().update(dt, ms_elapsed_since_start)
+        if self.ms_since_move >= self.move_time_threshold:
+            self.should_move = True
+            self.animate()
+            self.ms_since_move = 0
+        else:
+            self.should_move = False
+            self.ms_since_move += dt * 1000
+        

@@ -1,19 +1,31 @@
-# Example file showing a circle moving on screen
 import json
-from enum import Enum, auto
-from os import name
-from tkinter.constants import LEFT
-from typing import List
-from xml.dom.minidom import Entity
+from enum import Enum
 
 import pygame
 from pygame.sprite import Sprite
 
 from spaceinvaders.helpers import Direction
-from spaceinvaders.sprites import SpriteSheet, SpaceInvadersSprite
+from spaceinvaders.sprites import SpriteSheet, SpaceInvadersSprite, PlayerSprite, BarrierSprite, PlayerBulletSprite, EnemySprite
 
 
-class SpaceInvaders:
+PLAYER_SHIP_TAG = 'PLAYER_SHIP'
+BARRIER_TAG = 'BARRIER'
+BULLET_PLAYER_TAG = 'BULLET_PLAYER'
+BULLET_ENEMY_TAG = 'BULLET_ENEMY'
+ENEMY_CONEHEAD_TAG = 'ENEMY_CONEHEAD'
+ENEMY_ANTENNA_TAG = 'ENEMY_ANTENNA'
+ENEMY_EARS_TAG = 'ENEMY_EARS'
+
+SPEED_TAG = 'speed'
+COLOR_TAG = 'color'
+IMAGE_INDEXES_TAG = 'image_indexes'
+IMAGES_TAG = 'images'
+
+SPRITESHEET_PATH = 'res/spritesheets/space_invaders.png'
+SPRITEMAP_PATH = 'res/spritesheets/space_invaders.json'
+ENTITYINFO_PATH = 'res/entity_info.json'
+
+class SpaceInvaders:    
     def __init__(self):
         # initialize pygame
         pygame.init()
@@ -37,8 +49,8 @@ class SpaceInvaders:
         
         # set up sprite objects
         self.sprite_sheet = SpriteSheet(
-            'res/spritesheets/space_invaders.png', 
-            'res/spritesheets/space_invaders.json'
+            SPRITESHEET_PATH, 
+            SPRITEMAP_PATH
         )
         self.all_sprites = pygame.sprite.Group()
         self.wall_sprites = pygame.sprite.Group()
@@ -49,13 +61,14 @@ class SpaceInvaders:
         self.enemy_sprites = pygame.sprite.Group()
         self.barrier_sprites = pygame.sprite.Group()
 
-        self.entity_dict = json.load(open('res/entity_info.json'))
+        data = json.load(open(ENTITYINFO_PATH))
+        self.entity_dict = data
         for k in self.entity_dict.keys():
-            self.entity_dict[k]['name'] = k
-            self.entity_dict[k]['color'] = tuple(self.entity_dict[k]['color'])
-            self.entity_dict[k]['images'] = [self.sprite_sheet.get_image_by_num(int(i)) for i in self.entity_dict[k]['image_indexes']]
-        
-        self.enemy_direction = Direction.LEFT
+            # convert the color from list (JSON compatible) to tuple (Python)
+            self.entity_dict[k][COLOR_TAG] = tuple(self.entity_dict[k][COLOR_TAG])
+            self.entity_dict[k][IMAGES_TAG] = [self.sprite_sheet.get_image_by_num(int(i)) for i in self.entity_dict[k][IMAGE_INDEXES_TAG]]
+            # image indexes no longer relevant
+            self.entity_dict[k].pop(IMAGE_INDEXES_TAG)
         
         # reset and create sprites
         self.setup_new_game()
@@ -71,6 +84,7 @@ class SpaceInvaders:
         self.left_wall_sprite.image = pygame.Surface([100, self.WINDOW_HEIGHT])
         self.left_wall_sprite.image.fill((0, 0, 0))
         self.left_wall_sprite.rect = self.left_wall_sprite.image.get_rect()
+        # put the right edge of the left wall on the left edge of the screen
         self.left_wall_sprite.rect.right = 0
         self.wall_sprites.add(self.left_wall_sprite)
         self.all_sprites.add(self.left_wall_sprite)
@@ -80,69 +94,50 @@ class SpaceInvaders:
         self.right_wall_sprite.image = pygame.Surface([100, self.WINDOW_HEIGHT])
         self.right_wall_sprite.image.fill((0, 0, 0))
         self.right_wall_sprite.rect = self.right_wall_sprite.image.get_rect()
+        # put the left edge of the right wall on the right edge of the screen
         self.right_wall_sprite.rect.left = self.screen.get_width()
         self.wall_sprites.add(self.right_wall_sprite)
         self.all_sprites.add(self.right_wall_sprite)
         
         # create the player sprite
-        self.player_sprite = SpaceInvadersSprite(
-            self.entity_dict['PLAYER_SHIP'], self.screen.get_width() // 2, (7 / 4) * self.screen.get_height() // 2)
-        self.all_sprites.add(self.player_sprite)
+        self.player_sprite = PlayerSprite(
+            images = self.entity_dict[PLAYER_SHIP_TAG][IMAGES_TAG],
+            color = self.entity_dict[PLAYER_SHIP_TAG][COLOR_TAG],
+            speed = self.entity_dict[PLAYER_SHIP_TAG][SPEED_TAG],
+            x_pos = self.screen.get_width() // 2,
+            y_pos = (7 / 4) * self.screen.get_height() // 2,
+            groups = (self.all_sprites,))
 
         # create the barrier sprites
         for x in range(self.screen.get_width() // 5, 4 * self.screen.get_width() // 5, self.screen.get_width() // 5):
-            barrier_sprite = SpaceInvadersSprite(self.entity_dict['BARRIER'], x, 200)
-            self.barrier_sprites.add(barrier_sprite)
-            self.all_sprites.add(barrier_sprite)
+            BarrierSprite(
+                images = self.entity_dict[BARRIER_TAG][IMAGES_TAG],
+                color=self.entity_dict[BARRIER_TAG][COLOR_TAG],
+                speed=self.entity_dict[BARRIER_TAG][SPEED_TAG],
+                x_pos = x,
+                y_pos = 200,
+                groups = (self.all_sprites, self.barrier_sprites))
             
         # create top row of enemies
-        y = 60
+        top_row_y = 60
         y_increment = 16
         x_increment = self.screen.get_width() // 14
-        for x in range(2 * x_increment, 13 * x_increment, x_increment):
-            enemy_sprite = SpaceInvadersSprite(self.entity_dict['ENEMY_CONEHEAD'], x, y)
-            enemy_sprite.enemy_row = 0
-            # enemy_sprite.ms_since_move = 0
-            self.enemy_sprites.add(enemy_sprite)
-            self.all_sprites.add(enemy_sprite)
+        for row in range(6):
+            # 1st enemy row - Conehead
+            if row == 0: enemy = ENEMY_CONEHEAD_TAG
+            # 2nd and 3rd enemy rows - Antenna
+            elif 1 <= row <= 2: enemy = ENEMY_ANTENNA_TAG
+            # 4th and 5th enemy rows - Ears
+            else: enemy = ENEMY_EARS_TAG
+            for x in range(2 * x_increment, 13 * x_increment, x_increment):
+                EnemySprite(
+                    images = self.entity_dict[enemy][IMAGES_TAG],
+                    color = self.entity_dict[enemy][COLOR_TAG],
+                    speed = self.entity_dict[enemy][SPEED_TAG],
+                    x_pos = x, 
+                    y_pos = top_row_y + (row * y_increment),
+                    groups = (self.all_sprites, self.enemy_sprites))
         
-        # second row of enemies
-        y += y_increment
-        for x in range(2 * x_increment, 13 * x_increment, x_increment):
-            enemy_sprite = SpaceInvadersSprite(self.entity_dict['ENEMY_ANTENNA'], x, y)
-            enemy_sprite.enemy_row = 1
-            # enemy_sprite.ms_since_move = 200
-            self.enemy_sprites.add(enemy_sprite)
-            self.all_sprites.add(enemy_sprite)
-
-        # third row of enemies
-        y += y_increment
-        for x in range(2 * x_increment, 13 * x_increment, x_increment):
-            enemy_sprite = SpaceInvadersSprite(self.entity_dict['ENEMY_ANTENNA'], x, y)
-            enemy_sprite.enemy_row = 2
-            # enemy_sprite.ms_since_move = 400
-            self.enemy_sprites.add(enemy_sprite)
-            self.all_sprites.add(enemy_sprite)
-
-        # fourth row of enemies
-        y += y_increment
-        for x in range(2 * x_increment, 13 * x_increment, x_increment):
-            enemy_sprite = SpaceInvadersSprite(self.entity_dict['ENEMY_EARS'], x, y)
-            enemy_sprite.enemy_row = 3
-            # enemy_sprite.ms_since_move = 600
-            self.enemy_sprites.add(enemy_sprite)
-            self.all_sprites.add(enemy_sprite)
-
-        # fifth row of enemies
-        y += y_increment
-        for x in range(2 * x_increment, 13 * x_increment, x_increment):
-            enemy_sprite = SpaceInvadersSprite(self.entity_dict['ENEMY_EARS'], x, y)
-            enemy_sprite.enemy_row = 4
-            # enemy_sprite.ms_since_move = 800
-            self.enemy_sprites.add(enemy_sprite)
-            self.all_sprites.add(enemy_sprite)
-        
-          
         # DEBUG: create three enemy sprites in the middle of the screen
         # if __debug__:
         #     # print one of each enemy to the middle of the screen
@@ -170,20 +165,24 @@ class SpaceInvaders:
         #     )
         #     self.enemy_sprites.add(enemy_sprite)
         #     self.all_sprites.add(enemy_sprite)
-            
-
+           
     def player_shoot(self):
-        # create a bullet sprite at the player's location
+        # if no player bullet exists, create a bullet sprite at the player's location
         if len(self.player_bullet_sprites.sprites()) == 0:
-            bullet_sprite = SpaceInvadersSprite(self.entity_dict['BULLET_PLAYER'], self.player_sprite.rect.centerx, self.player_sprite.rect.centery)
-            self.player_bullet_sprites.add(bullet_sprite)
-            self.all_sprites.add(bullet_sprite)
+            PlayerBulletSprite(
+                images = self.entity_dict[BULLET_PLAYER_TAG][IMAGES_TAG], 
+                color = self.entity_dict[BULLET_PLAYER_TAG][COLOR_TAG],
+                speed = self.entity_dict[BULLET_PLAYER_TAG][SPEED_TAG],
+                x_pos = self.player_sprite.rect.centerx, 
+                y_pos = self.player_sprite.rect.centery,
+                groups = (self.all_sprites, self.player_bullet_sprites)
+            )
         
     def check_collision(self):
         enemy_died = pygame.sprite.groupcollide(self.enemy_sprites, self.player_bullet_sprites, True, True, collided=pygame.sprite.collide_mask)
         if enemy_died:
             for enemy in self.enemy_sprites.sprites():
-                enemy.enemy_move_threshold = len(self.enemy_sprites.sprites()) * 20
+                enemy.move_time_threshold = len(self.enemy_sprites.sprites()) * 20
         
     def handle_input(self):
         # poll for pressed keys during this frame
@@ -233,11 +232,11 @@ class SpaceInvaders:
             if len(self.enemy_sprites) > 0:
                 if pygame.sprite.spritecollide(self.left_wall_sprite, self.enemy_sprites, False) and self.enemy_sprites.sprites()[0].ms_since_move < 100:
                     for sprite in self.enemy_sprites:
-                        sprite.enemy_move_down()
+                        sprite.shift_down()
                         sprite.direction = sprite.direction.RIGHT
                 if pygame.sprite.spritecollide(self.right_wall_sprite, self.enemy_sprites, False) and self.enemy_sprites.sprites()[0].ms_since_move < 100:
                     for sprite in self.enemy_sprites:
-                        sprite.enemy_move_down()
+                        sprite.shift_down()
                         sprite.direction = sprite.direction.LEFT
 
             # call every sprite's update()

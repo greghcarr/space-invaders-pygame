@@ -1,0 +1,32 @@
+{
+  "PLAYER_SHIP": {
+    "speed": 200,
+    "image_indexes": [30],
+    "color": [32, 255, 32]
+  },
+  "BARRIER": {
+    "speed": 0,
+    "image_indexes": [27],
+    "color": [32, 255, 32]
+  },
+  "BULLET_PLAYER": {
+    "speed": 200,
+    "image_indexes": [24],
+    "color": [255, 255, 255]
+  },
+  "ENEMY_CONEHEAD": {
+    "speed": 150,
+    "image_indexes": [1, 5],
+    "color": [255, 255, 255]
+  },
+  "ENEMY_ANTENNA": {
+    "speed": 150,
+    "image_indexes": [2, 6],
+    "color": [255, 255, 255]
+  },
+  "ENEMY_EARS": {
+    "speed": 150,
+    "image_indexes": [3, 7],
+    "color": [255, 255, 255]
+  }
+}

@@ -1,6 +1,6 @@
 {
   "PLAYER_SHIP": {
-    "speed": 200,
+    "speed": 65,
     "image_indexes": [30],
     "color": [32, 255, 32]
   },

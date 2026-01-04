@@ -13,16 +13,18 @@ from spaceinvaders.helpers import Direction
 
 class SpriteSheet:
     def __init__(self, spritesheet_filename, spritemap_filename):
-        """Load the sprite sheet image and the map JSON."""
+        # Load the spritesheet image
         try:
             self.sheet = pygame.image.load(spritesheet_filename).convert_alpha()  # Use convert_alpha() for transparency
         except pygame.error as e:
             print(f"Unable to load spritesheet image: {spritesheet_filename}")
             raise e
+        
+        # Load the spritemap JSON
         try:
             self.map = json.load(open(spritemap_filename))
         except json.decoder.JSONDecodeError as e:
-            print(f"Unable to load map: {spritemap_filename}")
+            print(f"Unable to load spritemap: {spritemap_filename}")
             raise e
 
     def get_image_by_num(self, num: int):
@@ -66,28 +68,53 @@ def colorize_surfaces(images, new_color):
     return images_edited
 
 class SpaceInvadersSprite(pygame.sprite.Sprite):
-    def __init__(
-            self, 
-            images: List[pygame.Surface], 
-            color: tuple, 
-            speed: int, 
-            x_pos, 
-            y_pos, 
-            groups):
+    def __init__(self, images: List[pygame.Surface], color: tuple, speed: int, x_pos, y_pos, groups):
         super().__init__(groups)
-        # placeholder: using only one image right now
+        # we were given an array of images for animation
+        # if this Sprite has no animation, the array has a single image
         self.images = images
+        
+        # colorize the images based on the color we were provided
         self.images = colorize_surfaces(self.images, color)
+        
+        # initialize animation frame
         self.image_frame = 0
+        # set current image to corresponding frame image
         self.image = self.images[self.image_frame]
+        
+        # set mask for collision
         self.mask = pygame.mask.from_surface(self.image)
+        
+        # set rect to image
         self.rect = self.image.get_rect()
+        
+        # initial rect positioning
         self.rect.center = (x_pos, y_pos)
+        
+        # initialize pos field
         self.pos = Vector2(x_pos, y_pos)
-        self.vel = Vector2(0, 0)
-        self.speed = speed
-        self.direction = None
+        
+        # ----- TO MOVE AN OBJECT, CHANGE should_move AND direction -----
         self.should_move = False
+        self.direction = None
+        
+        # ----- THE TWO VARIABLES BELOW, speed AND vel, SHOULD NOT BE CHANGED BY ANTHING OTHER THAN UPDATE() -----
+        # speed is not used to calculate current movement
+        # speed is the speed of the Sprite WHEN it's moving
+        # speed is set when the Sprite is initialized, and probably not changed
+        # it is internally used (in combination with dt) to set vel to move the Sprite
+        self.speed = speed
+        
+        # velocity is an internal field used to compute distance traveled each frame if should_move=True
+        self.vel = Vector2(0, 0)
+        
+    def start_moving(self, direction: Direction):
+        self.should_move = True
+        self.direction = direction
+        
+    def stop_moving(self):
+        self.should_move = False
+        self.direction = None
 
     def is_at_edge(self, screen: pygame.Surface, direction: Direction):
         match direction:
@@ -153,19 +180,47 @@ class EnemySprite(SpaceInvadersSprite):
     def __init__(self, images: List[pygame.Surface], color: tuple, speed: int, x_pos, y_pos, groups):
         super().__init__(images, color, speed, x_pos, y_pos, groups)
         self.direction = Direction.RIGHT
+        self.score_for_kill = 0
         self.ms_since_move = 0
         self.move_time_threshold = 1000
 
     def shift_down(self):
-        self.pos.y += 1
+        self.pos.y += 1.5
         
     def update(self, dt, ms_elapsed_since_start):
-        super().update(dt, ms_elapsed_since_start)
+        # enemies use a time-based stepwise movement
+        # if it has been over 1000 ms (value assigned to move_time_threshold)
         if self.ms_since_move >= self.move_time_threshold:
+            # set up a move on this frame
             self.should_move = True
+            # shift to the next frame of the Sprite's array
             self.animate()
+            # reset the time since move, because we're about to move
             self.ms_since_move = 0
+        # ms_since_move has not accumulated to 1000 (value assigned to move_time_threshold) or more
         else:
+            # don't move
             self.should_move = False
+            # add the elapsed time in the last frame to the ms_since_move
             self.ms_since_move += dt * 1000
+            
+        # call super update after all this
+        super().update(dt, ms_elapsed_since_start)
+        
+class ConeheadEnemySprite(EnemySprite):
+    def __init__(self, images: List[pygame.Surface], color: tuple, speed: int, x_pos, y_pos, groups):
+        super().__init__(images, color, speed, x_pos, y_pos, groups)
+        self.score_for_kill = 30
+        
+class AntennaEnemySprite(EnemySprite):
+    def __init__(self, images: List[pygame.Surface], color: tuple, speed: int, x_pos, y_pos, groups):
+        super().__init__(images, color, speed, x_pos, y_pos, groups)
+        self.score_for_kill = 20
+        
+class EarsEnemySprite(EnemySprite):
+    def __init__(self, images: List[pygame.Surface], color: tuple, speed: int, x_pos, y_pos, groups):
+        super().__init__(images, color, speed, x_pos, y_pos, groups)
+        self.score_for_kill = 10
+        
+
         

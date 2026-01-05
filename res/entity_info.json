@@ -28,5 +28,40 @@
     "speed": 150,
     "image_indexes": [3, 7],
     "color": [255, 255, 255]
+  },
+  "BULLET_GRID_ENEMY_1": {
+    "speed": 150,
+    "image_indexes": [14, 15, 16, 17],
+    "color": [32, 255, 32]
+  },
+  "BULLET_GRID_ENEMY_2": {
+    "speed": 150,
+    "image_indexes": [18, 19, 20, 21],
+    "color": [32, 255, 32]
+  },
+  "BULLET_GRID_ENEMY_3": {
+    "speed": 150,
+    "image_indexes": [22, 23, 24, 25],
+    "color": [32, 255, 32]
+  },
+  "EXPLOSION_GRID_ENEMY": {
+    "speed": 0,
+    "image_indexes": [4],
+    "color": [255, 255, 255]
+  },
+  "EXPLOSION_BULLET_ENEMY": {
+    "speed": 0,
+    "image_indexes": [34],
+    "color": [255, 255, 255]
+  },
+  "EXPLOSION_BULLET_PLAYER": {
+    "speed": 0,
+    "image_indexes": [26],
+    "color": [255, 255, 255]
+  },
+  "EXPLOSION_PLAYER": {
+    "speed": 0,
+    "image_indexes": [31, 32],
+    "color": [32, 255, 32]
   }
 }

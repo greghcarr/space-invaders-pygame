@@ -34,7 +34,7 @@ IMAGES_TAG = 'images'
 SPRITESHEET_PATH = 'res/spritesheets/space_invaders.png'
 SPRITEMAP_PATH = 'res/spritesheets/space_invaders.json'
 ENTITYINFO_PATH = 'res/entity_info.json'
-SCORE_FONT_PATH = 'res/fonts/space-invaders.otf'
+SCORE_FONT_PATH = 'res/fonts/space_invaders/space-invaders.otf'
 
 # colors
 WHITE = (255, 255, 255)
@@ -137,6 +137,7 @@ class SpaceInvaders:
 
         # initialize the score variable
         self.score_player = 0
+        self.high_score = 0
 
         # ----- TEXT STUFF -----
         # set up the font
@@ -145,9 +146,12 @@ class SpaceInvaders:
 
         # initialize the scoreboard objects
         # set the positions for the score, score label
-        self.score_label_surface_pos = (self.screen.width // 5, self.screen.height // 20)
-        self.score_value_surface_pos = (self.screen.width // 5, self.screen.height // 10)
+        self.score_label_surface_pos = (42, self.screen.height // 20)
+        self.score_value_surface_pos = (42, self.screen.height // 10)
+        self.high_score_label_surface_pos = (self.screen.width // 2, self.screen.height // 20)
+        self.high_score_value_surface_pos = (self.screen.width // 2, self.screen.height // 10)
         self.game_over_surface_pos = (self.screen.width // 2, 2 * self.screen.height // 5)
+        self.play_again_surface_pos = (self.game_over_surface_pos[0], self.game_over_surface_pos[1] + 20)
         self.extra_life_counter_surface_pos = (14, 240)
         # label "SCORE P1"
         self.score_label_surface = self.font.render('SCORE P1', self.TEXT_ANTIALIASING, FG_COLOR)
@@ -156,11 +160,25 @@ class SpaceInvaders:
         # score number e.g. "00002370"
         self.score_value_surface, self.score_value_rect = None, None
         self.setup_score_surface()
+        
+        # label "HI-SCORE"
+        self.high_score_label_surface = self.font.render('HI-SCORE', self.TEXT_ANTIALIASING, FG_COLOR)
+        self.high_score_label_rect = self.high_score_label_surface.get_rect()
+        self.high_score_label_rect.center = self.high_score_label_surface_pos
+        # high score number e.g. "32063200"
+        self.high_score_value_surface = self.font.render('0000', self.TEXT_ANTIALIASING, FG_COLOR)
+        self.high_score_value_rect = self.high_score_value_surface.get_rect()
+        self.high_score_value_rect.center = self.high_score_value_surface_pos
 
         # initialize game over text and background
         self.game_over_surface = self.font.render('GAME OVER', self.TEXT_ANTIALIASING, FG_COLOR)
         self.game_over_rect = self.game_over_surface.get_rect()
         self.game_over_rect.center = self.game_over_surface_pos
+        
+        # initialize 'play again' text and background
+        self.play_again_surface = self.font.render('\'N\' to play again!', self.TEXT_ANTIALIASING, FG_COLOR)
+        self.play_again_rect = self.play_again_surface.get_rect()
+        self.play_again_rect.center = self.play_again_surface_pos
         
         # initialize extra life counter
         self.extra_life_counter_surface = self.font.render('0', self.TEXT_ANTIALIASING, FG_COLOR)
@@ -331,18 +349,22 @@ class SpaceInvaders:
 
     def draw_game_over(self):
         border_thickness = 1
-        bg_rect = pygame.Rect(0, 0, self.game_over_rect.width * 1.5, self.game_over_rect.height * 2)
-        bg_rect.center = self.game_over_rect.center
-        bg_rect_frame = bg_rect.inflate(border_thickness * 2, border_thickness * 2)
-        pygame.draw.rect(self.screen,
-                         FG_COLOR,
-                         bg_rect_frame,
-                         0)
-        pygame.draw.rect(self.screen,
-                         BG_COLOR,
-                         bg_rect,
-                         0)
+        game_over_bg_rect = pygame.Rect(0, 0, self.game_over_rect.width * 1.5, self.game_over_rect.height * 2)
+        game_over_bg_rect.center = self.game_over_rect.center
+        game_over_bg_rect_frame = game_over_bg_rect.inflate(border_thickness * 2, border_thickness * 2)
+        pygame.draw.rect(self.screen, FG_COLOR, game_over_bg_rect_frame, 0)
+        pygame.draw.rect(self.screen, BG_COLOR, game_over_bg_rect, 0)
         self.screen.blit(self.game_over_surface, self.game_over_rect)
+        
+        play_again_bg_rect = pygame.Rect(0, 0, self.play_again_rect.width * 1.1, self.play_again_rect.height * 2)
+        play_again_bg_rect.center = self.play_again_rect.center
+        play_again_bg_rect_frame = play_again_bg_rect.inflate(border_thickness * 2, border_thickness * 2)
+        pygame.draw.rect(self.screen, FG_COLOR, play_again_bg_rect_frame, 0)
+        pygame.draw.rect(self.screen, BG_COLOR, play_again_bg_rect, 0)
+        self.screen.blit(self.play_again_surface, self.play_again_rect)
+        
+        
+        
 
     @staticmethod
     def update_score_surface(func):
@@ -351,17 +373,15 @@ class SpaceInvaders:
             # change the score variable etc. before changing the visual
             result = func(calling_instance, *args, **kwargs)
             # change the visual
-            calling_instance.score_value_surface = (calling_instance.font.render(
-                f'{calling_instance.score_player:08d}',
-                calling_instance
-                .TEXT_ANTIALIASING,
-                FG_COLOR))
+            calling_instance.score_value_surface = (calling_instance.font.render(f'{calling_instance.score_player:04d}',calling_instance.TEXT_ANTIALIASING,FG_COLOR))
+            calling_instance.score_value_rect = calling_instance.score_value_surface.get_rect()
+            calling_instance.score_value_rect.center = calling_instance.score_value_surface_pos
             return result
 
         return wrapper
 
     def setup_score_surface(self):
-        self.score_value_surface = self.font.render(f'{self.score_player:08d}',
+        self.score_value_surface = self.font.render(f'{self.score_player:04d}',
                                                     self.TEXT_ANTIALIASING,
                                                     FG_COLOR)
         self.score_value_rect = self.score_value_surface.get_rect()
@@ -380,6 +400,18 @@ class SpaceInvaders:
         self.screen.blit(self.score_label_surface, self.score_label_rect)
         # draw the numeric score
         self.screen.blit(self.score_value_surface, self.score_value_rect)
+        
+    def update_high_score(self, new_high_score):
+        self.high_score = new_high_score
+        self.high_score_value_surface = self.font.render(f'{self.high_score:04d}', self.TEXT_ANTIALIASING, FG_COLOR)
+        self.high_score_value_rect = self.high_score_value_surface.get_rect()
+        self.high_score_value_rect.center = self.high_score_value_surface_pos
+        
+    def draw_high_score(self):
+        # draw the high score label
+        self.screen.blit(self.high_score_label_surface, self.high_score_label_rect)
+        # draw the high score value
+        self.screen.blit(self.high_score_value_surface, self.high_score_value_rect)
         
     def draw_extra_life_counter(self):
         lives = len(self.extra_player_sprites.sprites())
@@ -680,12 +712,17 @@ class SpaceInvaders:
                     self.handle_enemy_shoot()
                     # call every sprite's update() if the game's not over
                     self.all_sprites.update(self.dt_ms, self.ms_elapsed_since_start)
+            # game is over
+            else:
+                if self.score_player > self.high_score:
+                    self.update_high_score(self.score_player)
 
             # draw all the sprites (excluding text)
             self.all_sprites.draw(self.screen)
 
             # draw the score label and score
             self.draw_score()
+            self.draw_high_score()
             
             # draw extra life counter
             self.draw_extra_life_counter()
